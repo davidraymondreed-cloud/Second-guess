@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Second Guess</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0f1115; --panel:#181b22; --line:#2a2f3a; --text:#eef1f6; --muted:#8b93a3;
+    --easy:#3ddc97; --mid:#ffb84d; --hard:#ff5c7a; --accent:#7c9cff;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
+    font-family:'Space Grotesk',system-ui,sans-serif}
+  body{display:flex;justify-content:center;align-items:center;min-height:100%;padding:20px;user-select:none;-webkit-user-select:none}
+  .app{width:100%;max-width:420px;text-align:center}
+  .screen{display:none;flex-direction:column;align-items:center;gap:18px}
+  .screen.active{display:flex}
+  h1{font-size:40px;margin:0;letter-spacing:-1px}
+  h1 span{color:var(--accent)}
+  p{margin:0;color:var(--muted);line-height:1.5}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px 18px;width:100%;text-align:left}
+  .card h3{margin:0 0 10px;font-size:14px;text-transform:uppercase;letter-spacing:1px;color:var(--muted)}
+  .row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;font-size:15px}
+  .row + .row{border-top:1px solid var(--line)}
+  .tag{font-weight:700}
+  .easy{color:var(--easy)} .mid{color:var(--mid)} .hard{color:var(--hard)}
+  .btn{appearance:none;border:0;border-radius:999px;background:var(--accent);color:#0b0d12;
+    font:700 18px 'Space Grotesk',sans-serif;padding:14px 34px;cursor:pointer}
+  .btn:active{transform:scale(.97)}
+  .btn.ghost{background:transparent;color:var(--text);border:1px solid var(--line)}
+  .level{font-size:14px;text-transform:uppercase;letter-spacing:2px;font-weight:700}
+  .target{font-size:72px;font-weight:700;line-height:1;margin:4px 0}
+  .target small{font-size:22px;color:var(--muted);font-weight:500}
+  .mult{display:inline-block;padding:4px 12px;border-radius:999px;border:1px solid currentColor;font-weight:700;font-size:14px}
+  .dots{display:flex;gap:8px}
+  .dot{width:10px;height:10px;border-radius:50%;background:var(--line)}
+  .dot.done{background:var(--accent)}
+  .dot.now{background:var(--text)}
+
+  /* the big button */
+  .stage{position:relative;width:260px;height:260px;display:flex;align-items:center;justify-content:center}
+  .big{width:240px;height:240px;border-radius:50%;border:0;cursor:pointer;
+    font:700 64px 'Space Grotesk',sans-serif;color:#0b0d12;background:#3a3f4b;
+    box-shadow:0 10px 0 #262a33, 0 18px 40px rgba(0,0,0,.4);transition:background .15s}
+  .big.live{background:var(--accent);box-shadow:0 10px 0 #4a63c4,0 0 60px rgba(124,156,255,.35);font-size:40px}
+  .big.live:active{transform:translateY(6px);box-shadow:0 4px 0 #4a63c4}
+  .big.pop{animation:pop .9s ease-out}
+  @keyframes pop{0%{transform:scale(1.15)}60%{transform:scale(1)}}
+  .hint{min-height:24px;font-size:16px}
+
+  .result-big{font-size:56px;font-weight:700;line-height:1}
+  .verdict{font-size:22px;font-weight:700}
+  .total{font-size:64px;font-weight:700;color:var(--accent);line-height:1}
+  .best{font-size:14px;color:var(--muted)}
+  .share-box{width:100%;background:var(--panel);border:1px dashed var(--line);border-radius:12px;padding:12px 14px;
+    text-align:left;font-size:14px;line-height:1.5;white-space:pre-wrap;user-select:text;-webkit-user-select:text;color:var(--text)}
+  .btns{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+  .toast{min-height:20px;font-size:14px;color:var(--easy)}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- START -->
+  <section class="screen active" id="s-start">
+    <h1>Second<span>Guess</span></h1>
+    <p>Count in your head. Hit the button when you think the time's up. No clock to help you.</p>
+    <div class="card">
+      <h3>Three rounds</h3>
+      <div class="row"><span class="tag easy">Easy</span><span>under 10s</span><span>×1</span></div>
+      <div class="row"><span class="tag mid">Middle</span><span>10–20s</span><span>×2</span></div>
+      <div class="row"><span class="tag hard">Hard</span><span>21–60s</span><span>×3</span></div>
+    </div>
+    <div class="card">
+      <h3>Scoring</h3>
+      <p style="font-size:14px">Each round is worth up to <b style="color:var(--text)">100 points</b> before the multiplier. You lose points the further off you are, measured as a share of the target, so being 2s out on a 40s round is better than 2s out on a 5s round. Miss by half the target or more and you get 0. Max score: <b style="color:var(--text)">600</b>.</p>
+    </div>
+    <div class="best" id="bestStart"></div>
+    <button class="btn" id="startBtn">Play</button>
+  </section>
+
+  <!-- ROUND INTRO -->
+  <section class="screen" id="s-intro">
+    <div class="dots" id="dots"></div>
+    <div class="level" id="introLevel">Easy</div>
+    <p>Your target is</p>
+    <div class="target" id="introTarget">7<small> s</small></div>
+    <span class="mult" id="introMult">×1</span>
+    <button class="btn" id="readyBtn" style="margin-top:12px">I'm ready</button>
+  </section>
+
+  <!-- PLAY -->
+  <section class="screen" id="s-play">
+    <div class="level" id="playLevel">Easy</div>
+    <div class="hint" id="playHint">Get ready…</div>
+    <div class="stage"><button class="big" id="bigBtn">3</button></div>
+    <div class="hint" id="playSub">&nbsp;</div>
+  </section>
+
+  <!-- ROUND RESULT -->
+  <section class="screen" id="s-result">
+    <div class="level" id="resLevel">Easy</div>
+    <p>You stopped at</p>
+    <div class="result-big" id="resTime">7.00s</div>
+    <p id="resDiff">target 7s · spot on</p>
+    <div class="verdict" id="resVerdict">Perfect!</div>
+    <div class="card">
+      <div class="row"><span>Accuracy points</span><b id="resBase">100</b></div>
+      <div class="row"><span>Multiplier</span><b id="resMult">×1</b></div>
+      <div class="row"><span>Round score</span><b id="resScore" style="color:var(--accent)">100</b></div>
+    </div>
+    <button class="btn" id="nextBtn">Next round</button>
+  </section>
+
+  <!-- FINAL -->
+  <section class="screen" id="s-final">
+    <p>Final score</p>
+    <div class="total" id="finalTotal">0</div>
+    <div class="best" id="finalBest"></div>
+    <div class="card" id="finalCard"><h3>Breakdown</h3></div>
+    <div class="share-box" id="shareBox"></div>
+    <div class="btns">
+      <button class="btn" id="shareBtn">Share score</button>
+      <button class="btn ghost" id="againBtn">Play again</button>
+    </div>
+    <div class="toast" id="toast"></div>
+  </section>
+
+</div>
+
+<script>
+const LEVELS = [
+  { name:'Easy',   cls:'easy', min:3,  max:9,  mult:1 },
+  { name:'Middle', cls:'mid',  min:10, max:20, mult:2 },
+  { name:'Hard',   cls:'hard', min:21, max:60, mult:3 },
+];
+const $ = id => document.getElementById(id);
+let round = 0, targets = [], results = [], startTime = 0, live = false, timeoutId = null, countdownIds = [];
+
+function show(id){
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  $(id).classList.add('active');
+}
+const rand = (a,b) => Math.floor(Math.random()*(b-a+1))+a;
+
+function getBest(){ try{ return parseInt(localStorage.getItem('sg-best')||'0',10) }catch(e){ return 0 } }
+function setBest(v){ try{ localStorage.setItem('sg-best', String(v)) }catch(e){} }
+function renderBest(){ const b=getBest(); $('bestStart').textContent = b ? `Your best: ${b} / 600` : ''; }
+renderBest();
+
+// Accuracy score: 100 when exact, falling linearly to 0 when off by 50% of the target.
+function baseScore(target, elapsed){
+  const err = Math.abs(elapsed - target);
+  return Math.max(0, Math.round(100 * (1 - err / (target * 0.5))));
+}
+function verdict(base){
+  if (base >= 97) return 'Perfect!';
+  if (base >= 85) return 'Brilliant';
+  if (base >= 70) return 'Great';
+  if (base >= 50) return 'Not bad';
+  if (base > 0)   return 'Way off';
+  return 'Missed it';
+}
+
+function newGame(){
+  round = 0; results = [];
+  targets = LEVELS.map(l => rand(l.min, l.max));
+  intro();
+}
+
+function intro(){
+  const L = LEVELS[round];
+  $('dots').innerHTML = LEVELS.map((_,i)=>`<div class="dot ${i<round?'done':i===round?'now':''}"></div>`).join('');
+  $('introLevel').textContent = `Round ${round+1} · ${L.name}`;
+  $('introLevel').className = 'level ' + L.cls;
+  $('introTarget').innerHTML = `${targets[round]}<small> s</small>`;
+  $('introMult').textContent = `×${L.mult}`;
+  $('introMult').className = 'mult ' + L.cls;
+  show('s-intro');
+}
+
+function play(){
+  const L = LEVELS[round], target = targets[round];
+  const btn = $('bigBtn');
+  $('playLevel').textContent = `${L.name} · ${target}s`;
+  $('playLevel').className = 'level ' + L.cls;
+  $('playHint').textContent = 'Get ready…';
+  $('playSub').innerHTML = '&nbsp;';
+  btn.className = 'big'; live = false;
+  show('s-play');
+
+  [3,2,1].forEach((n,i) => countdownIds.push(setTimeout(() => {
+    btn.textContent = n; btn.classList.remove('pop'); void btn.offsetWidth; btn.classList.add('pop');
+  }, i*1000)));
+  countdownIds.push(setTimeout(() => {
+    btn.textContent = 'STOP';
+    btn.className = 'big live';
+    $('playHint').textContent = 'Counting… go!';
+    $('playSub').textContent = `Tap at ${target} seconds`;
+    startTime = performance.now();
+    live = true;
+    // Safety net: auto-end once it's impossible to score (1.5× target)
+    timeoutId = setTimeout(() => stop(), target * 1500);
+  }, 3000));
+}
+
+function stop(){
+  if (!live) return;
+  live = false;
+  clearTimeout(timeoutId);
+  const elapsed = (performance.now() - startTime) / 1000;
+  const L = LEVELS[round], target = targets[round];
+  const base = baseScore(target, elapsed);
+  const score = base * L.mult;
+  results.push({ level:L, target, elapsed, base, score });
+
+  const diff = elapsed - target;
+  const diffTxt = Math.abs(diff) < 0.05 ? 'spot on' : `${Math.abs(diff).toFixed(2)}s ${diff<0?'early':'late'}`;
+  $('resLevel').textContent = `Round ${round+1} · ${L.name}`;
+  $('resLevel').className = 'level ' + L.cls;
+  $('resTime').textContent = elapsed.toFixed(2) + 's';
+  $('resDiff').textContent = `target ${target}s · ${diffTxt}`;
+  $('resVerdict').textContent = verdict(base);
+  $('resBase').textContent = base;
+  $('resMult').textContent = '×' + L.mult;
+  $('resScore').textContent = score;
+  $('nextBtn').textContent = round < 2 ? 'Next round' : 'See final score';
+  show('s-result');
+}
+
+function next(){
+  round++;
+  if (round < 3) return intro();
+  const total = results.reduce((s,r)=>s+r.score,0);
+  const prev = getBest();
+  if (total > prev) setBest(total);
+  $('finalTotal').textContent = total;
+  $('finalBest').textContent = total > prev && prev > 0 ? 'New personal best!' : total > prev ? 'Out of 600' : `Best: ${prev} / 600`;
+  $('finalCard').innerHTML = '<h3>Breakdown</h3>' + results.map(r =>
+    `<div class="row"><span class="tag ${r.level.cls}">${r.level.name}</span><span>${r.elapsed.toFixed(2)}s / ${r.target}s</span><b>${r.score}</b></div>`
+  ).join('');
+  $('shareBox').textContent = shareText(total);
+  $('toast').textContent = '';
+  renderBest();
+  show('s-final');
+}
+
+// Uses whatever address the game is hosted at. Replace with a short link if you make one.
+const GAME_URL = location.protocol.startsWith('http') ? location.origin + location.pathname : 'https://your-game-link-here';
+const square = b => b >= 85 ? '🟩' : b >= 50 ? '🟨' : '🟥';
+function shareText(total){
+  const lines = results.map(r => `${square(r.base)} ${r.level.name}: ${r.elapsed.toFixed(2)}s / ${r.target}s`);
+  return `⏱️ Second Guess: ${total}/600\n${lines.join('\n')}\nCan you beat me? ${GAME_URL}`;
+}
+
+async function share(){
+  const text = $('shareBox').textContent;
+  try {
+    if (navigator.share) { await navigator.share({ text }); return; }
+  } catch (e) { if (e && e.name === 'AbortError') return; }
+  try {
+    await navigator.clipboard.writeText(text);
+    $('toast').textContent = 'Copied! Paste it into a text message.';
+  } catch (e) {
+    // Last resort: select the text so the player can copy it by hand
+    const r = document.createRange(); r.selectNodeContents($('shareBox'));
+    const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+    $('toast').textContent = 'Text selected — tap Copy, then paste into a message.';
+  }
+}
+
+$('startBtn').onclick = newGame;
+$('readyBtn').onclick = play;
+$('nextBtn').onclick = next;
+$('againBtn').onclick = newGame;
+$('shareBtn').onclick = share;
+// pointerdown is faster than click for timing
+$('bigBtn').addEventListener('pointerdown', e => { e.preventDefault(); stop(); });
+</script>
+</body>
+</html>
